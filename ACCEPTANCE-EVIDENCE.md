@@ -6,7 +6,10 @@
 ## 验收 1：空库上 `alembic upgrade head` 与 `alembic downgrade -1` 均执行成功
 **迁移实录（真实输出，`bash scripts/run_migration_demo.sh`，退出码 0）**
 ```
-
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_sales_leads, create sales_leads（招商线索 + 归属日志）
+No new upgrade operations detected.
+INFO  [alembic.runtime.migration] Running downgrade 0001_sales_leads -> , create sales_leads（招商线索 + 归属日志）
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_sales_leads, create sales_leads（招商线索 + 归属日志）
 ```
 **自动化断言**
 - `tests/test_migrations.py::test_upgrade_head_creates_tables_and_indexes`
