@@ -1,0 +1,4 @@
+{
+  "tests/test_company_name_norm.py::test_normalize[\\u7a7a\\u683c\\u63d2\\u5728\\u540e\\u7f00\\u4e2d\\u95f4]": true,
+  "tests/test_migrations.py::test_model_and_database_agree_on_partial_index_condition": true
+}

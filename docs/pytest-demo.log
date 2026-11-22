@@ -1,0 +1,17 @@
+...............................                                          [100%]
+=============================== warnings summary ===============================
+tests/test_migrations.py::test_upgrade_head_creates_tables_and_indexes
+  /workspace/.venv-sales/lib/python3.11/site-packages/platformdirs/api.py:441: RuntimeDirWarning: XDG_RUNTIME_DIR is not set, falling back to /tmp/runtime-0
+    return Path(self.user_runtime_dir)
+
+tests/test_migrations.py::test_upgrade_head_creates_tables_and_indexes
+tests/test_migrations.py::test_alembic_check_reports_no_new_operations
+tests/test_migrations.py::test_alembic_check_reports_no_new_operations
+tests/test_migrations.py::test_downgrade_one_removes_tables_then_restores
+tests/test_migrations.py::test_downgrade_one_removes_tables_then_restores
+tests/test_migrations.py::test_downgrade_one_removes_tables_then_restores
+  /workspace/.venv-sales/lib/python3.11/site-packages/alembic/config.py:604: DeprecationWarning: No path_separator found in configuration; falling back to legacy splitting on spaces, commas, and colons for prepend_sys_path.  Consider adding path_separator=os to Alembic config.
+    util.warn_deprecated(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+31 passed, 7 warnings in 4.95s

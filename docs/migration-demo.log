@@ -1,0 +1,31 @@
+# 迁移实录（真实输出）
+# 数据库：PostgreSQL 16（pgserver 本地实例，socket 连接）
+# 生成时间：2026-11-22T03:10:22Z
+
+$ alembic upgrade head
+    INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+    INFO  [alembic.runtime.migration] Will assume transactional DDL.
+    INFO  [alembic.runtime.migration] Running upgrade  -> 0001_sales_leads, create sales_leads（招商线索 + 归属日志）
+
+$ alembic check
+    INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+    INFO  [alembic.runtime.migration] Will assume transactional DDL.
+    INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.schemas
+    INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.tables
+    INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.types
+    INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.constraints
+    INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.defaults
+    INFO  [alembic.runtime.plugins] setting up autogenerate plugin alembic.autogenerate.comments
+    No new upgrade operations detected.
+
+$ alembic downgrade -1
+    INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+    INFO  [alembic.runtime.migration] Will assume transactional DDL.
+    INFO  [alembic.runtime.migration] Running downgrade 0001_sales_leads -> , create sales_leads（招商线索 + 归属日志）
+
+$ alembic upgrade head
+    INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+    INFO  [alembic.runtime.migration] Will assume transactional DDL.
+    INFO  [alembic.runtime.migration] Running upgrade  -> 0001_sales_leads, create sales_leads（招商线索 + 归属日志）
+
+# 结束：alembic check 无差异、升降级均成功
