@@ -1,6 +1,9 @@
+/home/clawhunt-deploy/venvs/1828-check-20261122/lib64/python3.11/site-packages/platformdirs/api.py:441: RuntimeDirWarning: XDG_RUNTIME_DIR is not set, falling back to /tmp/runtime-1003
+  return Path(self.user_runtime_dir)
+PostgreSQL actual version: 16.2
 # 迁移实录（真实输出）
 # 数据库：PostgreSQL 16（pgserver 本地实例，socket 连接）
-# 生成时间：2026-11-22T03:10:22Z
+# 生成时间：2026-11-22T04:26:05Z
 
 $ alembic upgrade head
     INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
@@ -29,3 +32,4 @@ $ alembic upgrade head
     INFO  [alembic.runtime.migration] Running upgrade  -> 0001_sales_leads, create sales_leads（招商线索 + 归属日志）
 
 # 结束：alembic check 无差异、升降级均成功
+MIGRATION_EXIT=0

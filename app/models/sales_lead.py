@@ -10,16 +10,18 @@ from datetime import datetime
 from sqlalchemy import (
     CheckConstraint,
     DateTime,
-    ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
     Text,
     Uuid,
+    UniqueConstraint,
+    and_,
     func,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, foreign
 
 from .base import Base, TenantMixin
 
@@ -61,6 +63,11 @@ class SalesLead(Base, TenantMixin):
         ),
         CheckConstraint("pool_status IN ('owned','public')", name="ck_sales_leads_pool_status"),
         CheckConstraint("recycle_count >= 0", name="ck_sales_leads_recycle_count"),
+        CheckConstraint(
+            "(pool_status = 'public' AND owner_id IS NULL) OR (pool_status = 'owned' AND owner_id IS NOT NULL)",
+            name="ck_sales_leads_pool_owner",
+        ),
+        UniqueConstraint("org_id", "id", name="uq_sales_leads_org_id"),
         # 同一 org 下相同 uscc 且未软删除 ⇒ 唯一（部分唯一索引）
         Index(
             "uq_sales_leads_org_uscc",
@@ -97,7 +104,11 @@ class SalesLead(Base, TenantMixin):
     lost_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     logs: Mapped[list["SalesLeadOwnerLog"]] = relationship(
-        back_populates="lead", cascade="all, delete-orphan"
+        back_populates="lead", cascade="all, delete-orphan",
+        primaryjoin=lambda: and_(
+            SalesLead.org_id == SalesLeadOwnerLog.org_id,
+            SalesLead.id == foreign(SalesLeadOwnerLog.lead_id),
+        ),
     )
 
 
@@ -110,11 +121,15 @@ class SalesLeadOwnerLog(Base, TenantMixin):
             "action IN ('register','assign','claim','release','recycle','transfer')",
             name="ck_sales_lead_owner_logs_action",
         ),
+        ForeignKeyConstraint(
+            ["org_id", "lead_id"], ["sales_leads.org_id", "sales_leads.id"],
+            name="fk_sales_lead_owner_logs_org_lead", ondelete="CASCADE",
+        ),
         Index("ix_sales_lead_owner_logs_lead", "org_id", "lead_id", "operated_at"),
     )
 
     lead_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("sales_leads.id", ondelete="CASCADE"), nullable=False
+        Uuid(as_uuid=True), nullable=False
     )
     action: Mapped[str] = mapped_column(String(16), nullable=False)
     from_owner_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), nullable=True)
@@ -125,4 +140,11 @@ class SalesLeadOwnerLog(Base, TenantMixin):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
-    lead: Mapped[SalesLead] = relationship(back_populates="logs")
+    # Only synchronize lead_id; never silently rewrite an explicitly supplied tenant.
+    lead: Mapped[SalesLead] = relationship(
+        back_populates="logs",
+        primaryjoin=lambda: and_(
+            SalesLead.org_id == SalesLeadOwnerLog.org_id,
+            SalesLead.id == foreign(SalesLeadOwnerLog.lead_id),
+        ),
+    )

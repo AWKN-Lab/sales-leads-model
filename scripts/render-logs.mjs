@@ -10,7 +10,7 @@ const pwMod = await import(PW)
 const chromium = pwMod.chromium ?? pwMod.default?.chromium
 if (!chromium) throw new Error(`playwright-core 载入失败：${PW}`)
 
-const EXEC = '/root/.cache/ms-playwright/chromium-1243/chrome-linux/chrome'
+const EXEC = process.env.CHROMIUM_PATH || undefined
 const OUT = join(process.cwd(), 'docs', 'screenshots')
 if (!existsSync(OUT)) mkdirSync(OUT, { recursive: true })
 

@@ -15,22 +15,22 @@
 
 ```bash
 python -m venv .venv && . .venv/bin/activate
-pip install -r requirements.txt
-pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt   # 国内镜像（直连被墙时）
+pip install -r requirements.lock.txt
+pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.lock.txt   # 国内镜像（直连被墙时）
 
 # 起一个本地 PostgreSQL 16（pgserver 内嵌实例，测试会自己起一个）
-pytest -q                                   # 32 项全绿
+pytest -q                                   # 43 项全绿
 
 # 迁移实录（空库 → upgrade head → check → downgrade -1 → upgrade head）
 export DATABASE_URL='postgresql://postgres:@/postgres?host=/path/to/pgdata'
 bash scripts/run_migration_demo.sh         # 输出即 docs/migration-demo.log
 ```
 
-**实测输出（2026-11-22，Python 3.11.9 / PostgreSQL 16 / SQLAlchemy 2.1.9 / Alembic 1.20.1）**
+**实测输出（2026-11-22，Python 3.11.13 / PostgreSQL 16 / SQLAlchemy 2.1.9 / Alembic 1.20.1）**
 
 | 命令 | 期望 | 实测 |
 |---|---|---|
-| `pytest -q` | 全绿 | `32 passed, 8 warnings in 5.09s` |
+| `pytest -q` | 全绿 | `43 passed, 1 warning（见新日志）` |
 | `alembic upgrade head` | 成功 | `Running upgrade  -> 0001_sales_leads, create sales_leads（招商线索 + 归属日志）` |
 | `alembic check` | 无差异 | `No new upgrade operations detected.` |
 | `alembic downgrade -1` | 成功 | `Running downgrade 0001_sales_leads -> , create sales_leads…`（两表与索引全部清理） |
@@ -63,10 +63,10 @@ bash scripts/run_migration_demo.sh         # 输出即 docs/migration-demo.log
 | `contact_mobile_hash` | varchar(64) | 是 | 手机号**检索摘要**（HMAC-SHA256，密钥取环境变量），用于等值检索 |
 | `intent_space_type` | varchar(32) | 是 | 意向空间类型 |
 | `intent_seats` | int | 是 | 意向工位数 |
-| `owner_id` | UUID | 是 | 归属人；**公海时为空** |
+| `owner_id` | UUID | 是 | 归属人；公海必须为空，owned 必须非空（数据库 CHECK） |
 | `pool_status` | varchar(8) | 否 | `owned` / `public`（CHECK 枚举，默认 `public`） |
 | `stage` | varchar(32) | 否 | 阶段（默认 `new`） |
-| `registered_at` | timestamptz | 否 | **报备时间**，DB 侧 `now()` 默认值 ⇒ **只由服务端写入**，不接受客户端传入 |
+| `registered_at` | timestamptz | 否 | **报备时间**，数据库 BEFORE INSERT 触发器取实际服务器时间；显式输入被覆盖，后续修改被拒绝 |
 | `assigned_at` | timestamptz | 是 | 最近一次归属时间 |
 | `last_follow_up_at` | timestamptz | 是 | 最近跟进时间 |
 | `recycle_count` | int | 否 | 回流次数（默认 0，CHECK ≥ 0） |
@@ -75,7 +75,7 @@ bash scripts/run_migration_demo.sh         # 输出即 docs/migration-demo.log
 ### 表 `sales_lead_owner_logs`（归属日志）
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `lead_id` | UUID | 所属线索（FK → `sales_leads.id`，`ON DELETE CASCADE`） |
+| `lead_id` | UUID | 所属线索（组合 FK：`(org_id, lead_id) → sales_leads(org_id, id)`，`ON DELETE CASCADE`） |
 | `action` | varchar(16) | `register` / `assign` / `claim` / `release` / `recycle` / `transfer`（CHECK 枚举） |
 | `from_owner_id` / `to_owner_id` | UUID | 变更前后归属人（可空） |
 | `reason` | text | 原因 |
@@ -133,15 +133,24 @@ normalize_company_name("某某集团有限公司")                  # → '某�
 ## 七、已知限制（如实）
 
 - 本单只交付**数据模型与迁移**，不含业务接口（FastAPI 路由）与前端。
-- `registered_at` 由 DB 默认值写入（`now()`）；若后续要求"以报备动作发生时刻为准"，
-  应改为由服务端显式赋值（当前实现已保证客户端无法覆盖）。
+- `registered_at` 由数据库触发器在插入时赋值，更新时禁止改变；仅限正常数据库写入路径，不防拥有DDL权限的管理者关闭触发器。
 - `stage` 取值为字符串（默认 `new`），本单未给出枚举清单 ⇒ 未加 CHECK；工单补充枚举后需新增迁移。
 
 ## 八、复跑清单（给验收方）
 
 ```bash
-pip install -r requirements.txt
-pytest -q                                  # 32 项
+pip install -r requirements.lock.txt
+pytest -q                                  # 43 项
 DATABASE_URL=... bash scripts/run_migration_demo.sh   # 迁移实录
 python scripts/verify_manifest.py          # 校验交付文件完整性（MANIFEST.sha256）
 ```
+
+
+## 九、最终整改与部署边界
+
+- 组合外键阻止跨 org 日志关联，ORM 只同步 lead_id，明确传入的 org_id 不会被静默覆盖。写入方必须显式传入可信 org_id。
+- 公海/归属一致性 CHECK：public 必须无 owner，owned 必须有 owner；归属切换须在同一更新中完成。
+- 报备时间由 INSERT 触发器覆盖，UPDATE 触发器拦截变更；普通业务字段仍可更新。迁移降级清除触发器与函数。
+- S2-IAM 接口桩只用于演示；生产权限校验和租户查询隔离由集成方实施，本交付未声称实现 RLS。
+- 工单尚未交标，本次修订初始 0001 迁移，适用于新空库。若旧版 0001 已在持久数据库执行，不得直接覆盖后运行 upgrade head；须另做增量迁移并先核查存量异常。
+- 依赖版本锁定于 requirements.lock.txt。测试使用 pgserver 临时实例，不连接业务数据库。

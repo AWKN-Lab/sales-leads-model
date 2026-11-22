@@ -1,0 +1,200 @@
+FFFFFFFFFF                                                               [100%]
+=================================== FAILURES ===================================
+_____________________ test_cross_org_log_database_rejected _____________________
+
+ready = Engine(postgresql://postgres:***@/postgres?host=%2Ftmp%2Fpytest-of-clawhunt-deploy%2Fpytest-2%2Fpgdata0)
+
+    def test_cross_org_log_database_rejected(ready):
+        row = lead()
+        with ready.begin() as conn:
+            conn.execute(SalesLead.__table__.insert().values(**row))
+>       with pytest.raises(IntegrityError, match="fk_sales_lead_owner_logs_org_lead"):
+E       Failed: DID NOT RAISE IntegrityError
+
+tests/test_hardening.py:37: Failed
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_sales_leads, create sales_leads（招商线索 + 归属日志）
+__________ test_same_org_log_allowed_and_cross_org_reparent_rejected ___________
+
+ready = Engine(postgresql://postgres:***@/postgres?host=%2Ftmp%2Fpytest-of-clawhunt-deploy%2Fpytest-2%2Fpgdata0)
+
+    def test_same_org_log_allowed_and_cross_org_reparent_rejected(ready):
+        row = lead()
+        with ready.begin() as conn:
+            conn.execute(SalesLead.__table__.insert().values(**row))
+            log_id = conn.execute(SalesLeadOwnerLog.__table__.insert().values(
+                org_id=ORG, lead_id=row["id"], action="register").returning(SalesLeadOwnerLog.id)).scalar_one()
+>       with pytest.raises(IntegrityError, match="fk_sales_lead_owner_logs_org_lead"):
+E       Failed: DID NOT RAISE IntegrityError
+
+tests/test_hardening.py:49: Failed
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+_______________ test_invalid_pool_owner_rejected[public-owner0] ________________
+
+ready = Engine(postgresql://postgres:***@/postgres?host=%2Ftmp%2Fpytest-of-clawhunt-deploy%2Fpytest-2%2Fpgdata0)
+pool = 'public', owner = UUID('00000000-0000-0000-0000-000000000011')
+
+    @pytest.mark.parametrize("pool,owner", [("public", OWNER), ("owned", None)])
+    def test_invalid_pool_owner_rejected(ready, pool, owner):
+>       with pytest.raises(IntegrityError, match="ck_sales_leads_pool_owner"):
+E       Failed: DID NOT RAISE IntegrityError
+
+tests/test_hardening.py:57: Failed
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+_________________ test_invalid_pool_owner_rejected[owned-None] _________________
+
+ready = Engine(postgresql://postgres:***@/postgres?host=%2Ftmp%2Fpytest-of-clawhunt-deploy%2Fpytest-2%2Fpgdata0)
+pool = 'owned', owner = None
+
+    @pytest.mark.parametrize("pool,owner", [("public", OWNER), ("owned", None)])
+    def test_invalid_pool_owner_rejected(ready, pool, owner):
+>       with pytest.raises(IntegrityError, match="ck_sales_leads_pool_owner"):
+E       Failed: DID NOT RAISE IntegrityError
+
+tests/test_hardening.py:57: Failed
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+________________ test_valid_pool_transition_and_invalid_update _________________
+
+ready = Engine(postgresql://postgres:***@/postgres?host=%2Ftmp%2Fpytest-of-clawhunt-deploy%2Fpytest-2%2Fpgdata0)
+
+    def test_valid_pool_transition_and_invalid_update(ready):
+        row = lead(pool_status="public", owner_id=None)
+        with ready.begin() as conn:
+            conn.execute(SalesLead.__table__.insert().values(**row))
+            conn.execute(SalesLead.__table__.update().where(SalesLead.id == row["id"]).values(
+                pool_status="owned", owner_id=OWNER))
+>       with pytest.raises(IntegrityError, match="ck_sales_leads_pool_owner"):
+E       Failed: DID NOT RAISE IntegrityError
+
+tests/test_hardening.py:68: Failed
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+_____________ test_registered_at_server_assigned_on_insert[False] ______________
+
+ready = Engine(postgresql://postgres:***@/postgres?host=%2Ftmp%2Fpytest-of-clawhunt-deploy%2Fpytest-2%2Fpgdata0)
+explicit = False
+
+    @pytest.mark.parametrize("explicit", [False, True])
+    def test_registered_at_server_assigned_on_insert(ready, explicit):
+        row = lead()
+        if explicit:
+            row["registered_at"] = FORGED
+        with ready.begin() as conn:
+            before = conn.scalar(text("SELECT clock_timestamp()"))
+            value = conn.execute(SalesLead.__table__.insert().values(**row).returning(
+                SalesLead.registered_at)).scalar_one()
+            after = conn.scalar(text("SELECT clock_timestamp()"))
+>           assert before <= value <= after
+E           AssertionError: assert datetime.datetime(2026, 11, 22, 12, 23, 41, 584719, tzinfo=zoneinfo.ZoneInfo(key='Asia/Shanghai')) <= datetime.datetime(2026, 11, 22, 12, 23, 41, 584516, tzinfo=zoneinfo.ZoneInfo(key='Asia/Shanghai'))
+
+tests/test_hardening.py:86: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+______________ test_registered_at_server_assigned_on_insert[True] ______________
+
+ready = Engine(postgresql://postgres:***@/postgres?host=%2Ftmp%2Fpytest-of-clawhunt-deploy%2Fpytest-2%2Fpgdata0)
+explicit = True
+
+    @pytest.mark.parametrize("explicit", [False, True])
+    def test_registered_at_server_assigned_on_insert(ready, explicit):
+        row = lead()
+        if explicit:
+            row["registered_at"] = FORGED
+        with ready.begin() as conn:
+            before = conn.scalar(text("SELECT clock_timestamp()"))
+            value = conn.execute(SalesLead.__table__.insert().values(**row).returning(
+                SalesLead.registered_at)).scalar_one()
+            after = conn.scalar(text("SELECT clock_timestamp()"))
+>           assert before <= value <= after
+E           AssertionError: assert datetime.datetime(2026, 11, 22, 12, 23, 41, 672573, tzinfo=zoneinfo.ZoneInfo(key='Asia/Shanghai')) <= datetime.datetime(2000, 1, 1, 8, 0, tzinfo=zoneinfo.ZoneInfo(key='Asia/Shanghai'))
+
+tests/test_hardening.py:86: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+____________ test_registered_at_immutable_and_other_updates_allowed ____________
+
+ready = Engine(postgresql://postgres:***@/postgres?host=%2Ftmp%2Fpytest-of-clawhunt-deploy%2Fpytest-2%2Fpgdata0)
+
+    def test_registered_at_immutable_and_other_updates_allowed(ready):
+        row = lead()
+        with ready.begin() as conn:
+            original = conn.execute(SalesLead.__table__.insert().values(**row).returning(
+                SalesLead.registered_at)).scalar_one()
+>       with pytest.raises(DBAPIError, match="registered_at is immutable") as err:
+E       Failed: DID NOT RAISE DBAPIError
+
+tests/test_hardening.py:94: Failed
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+__________________ test_orm_relationship_and_server_timestamp __________________
+
+ready = Engine(postgresql://postgres:***@/postgres?host=%2Ftmp%2Fpytest-of-clawhunt-deploy%2Fpytest-2%2Fpgdata0)
+
+    def test_orm_relationship_and_server_timestamp(ready):
+        with Session(ready) as session:
+            row = SalesLead(**lead(registered_at=FORGED))
+            row.logs.append(SalesLeadOwnerLog(org_id=ORG, action="register"))
+            session.add(row)
+            session.commit()
+            session.refresh(row)
+>           assert row.registered_at != FORGED
+E           AssertionError: assert datetime.datetime(2000, 1, 1, 8, 0, tzinfo=zoneinfo.ZoneInfo(key='Asia/Shanghai')) != datetime.datetime(2000, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
+E            +  where datetime.datetime(2000, 1, 1, 8, 0, tzinfo=zoneinfo.ZoneInfo(key='Asia/Shanghai')) = <app.models.sales_lead.SalesLead object at 0x7f51359e6010>.registered_at
+
+tests/test_hardening.py:113: AssertionError
+---------------------------- Captured stderr setup -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+____________________________ test_trigger_lifecycle ____________________________
+
+database_url = 'postgresql://postgres:@/postgres?host=/tmp/pytest-of-clawhunt-deploy/pytest-2/pgdata0'
+engine = Engine(postgresql://postgres:***@/postgres?host=%2Ftmp%2Fpytest-of-clawhunt-deploy%2Fpytest-2%2Fpgdata0)
+
+    def test_trigger_lifecycle(database_url, engine):
+        cfg = Config("alembic.ini")
+        command.upgrade(cfg, "head")
+        def trigger_count():
+            with engine.connect() as conn:
+                return conn.scalar(text("SELECT count(*) FROM pg_trigger WHERE tgname='trg_sales_leads_registered_at' AND NOT tgisinternal"))
+>       assert trigger_count() == 1
+E       assert 0 == 1
+E        +  where 0 = <function test_trigger_lifecycle.<locals>.trigger_count at 0x7f513584b420>()
+
+tests/test_hardening.py:124: AssertionError
+----------------------------- Captured stderr call -----------------------------
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+=============================== warnings summary ===============================
+tests/test_hardening.py::test_cross_org_log_database_rejected
+  /home/clawhunt-deploy/venvs/1828-check-20261122/lib64/python3.11/site-packages/platformdirs/api.py:441: RuntimeDirWarning: XDG_RUNTIME_DIR is not set, falling back to /tmp/runtime-1003
+    return Path(self.user_runtime_dir)
+
+tests/test_hardening.py: 10 warnings
+  /home/clawhunt-deploy/venvs/1828-check-20261122/lib64/python3.11/site-packages/alembic/config.py:604: DeprecationWarning: No path_separator found in configuration; falling back to legacy splitting on spaces, commas, and colons for prepend_sys_path.  Consider adding path_separator=os to Alembic config.
+    util.warn_deprecated(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_hardening.py::test_cross_org_log_database_rejected - Failed...
+FAILED tests/test_hardening.py::test_same_org_log_allowed_and_cross_org_reparent_rejected
+FAILED tests/test_hardening.py::test_invalid_pool_owner_rejected[public-owner0]
+FAILED tests/test_hardening.py::test_invalid_pool_owner_rejected[owned-None]
+FAILED tests/test_hardening.py::test_valid_pool_transition_and_invalid_update
+FAILED tests/test_hardening.py::test_registered_at_server_assigned_on_insert[False]
+FAILED tests/test_hardening.py::test_registered_at_server_assigned_on_insert[True]
+FAILED tests/test_hardening.py::test_registered_at_immutable_and_other_updates_allowed
+FAILED tests/test_hardening.py::test_orm_relationship_and_server_timestamp - ...
+FAILED tests/test_hardening.py::test_trigger_lifecycle - assert 0 == 1
+10 failed, 11 warnings in 3.91s
