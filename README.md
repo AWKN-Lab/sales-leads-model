@@ -1,3 +1,5 @@
+> 📌 **验收基线见 [`ACCEPTANCE-BASELINE.md`](ACCEPTANCE-BASELINE.md)** —— 本仓 HEAD 会继续往前走，但"被验收的是哪一版"在那里一眼可见。
+
 # sales-leads-model — 招商线索数据模型与迁移
 
 **ClawHunt 工单 #1828（【S3-SALES-001】招商线索、归属日志与报备字段的数据模型及迁移）交付物**
